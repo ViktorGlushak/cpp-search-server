@@ -64,11 +64,9 @@ public:
 
     void AddDocument(int document_id, const string& document) {
         const vector<string> words = SplitIntoWordsNoStop(document);
+        const double inv_word_count = 1.0 / words.size();
         for(const string& word : words){
-            if(word[0] != '-'){
-                ++documents_[word][document_id].first;
-                documents_[word][document_id].second = words.size();
-            }
+            documents_[word][document_id] += inv_word_count;
         }
         ++document_count_;
     }
@@ -91,7 +89,7 @@ private:
     
     int document_count_ = 0;
 
-    map<string, map<int, pair<double, double>>> documents_;
+    map<string, map<int, double>> documents_;
 
     set<string> stop_words_;
 
@@ -122,6 +120,10 @@ private:
         return query_words;
     }
 
+    double ComputeIDF(string plus_word) const {
+        return log(document_count_ * 1.0/documents_.at(plus_word).size());
+    }
+
     vector<Document> FindAllDocuments(const Query& query_words) const {
         map<int, double> matched_documents;
         vector<Document> docs;
@@ -129,11 +131,9 @@ private:
         for (string plus_word : query_words.plus_words){
             if(documents_.count(plus_word) && !added_words.count(plus_word)){
                 added_words.insert(plus_word);
-                double doc_count_words = documents_.at(plus_word).size();
-                for(const auto& [id, data_doc] : documents_.at(plus_word)){
-                    double idf = log(document_count_/doc_count_words);
-                    double tf = data_doc.first/data_doc.second;
-                    matched_documents[id] += idf * tf;  
+                
+                for(const auto& [id, tf] : documents_.at(plus_word)){
+                    matched_documents[id] += ComputeIDF(plus_word) * tf;  
 
                 }
             }    
